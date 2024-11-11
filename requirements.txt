@@ -1,0 +1,17 @@
+torch
+torchvision
+torchaudio
+numpy==1.26.4
+opencv-python
+jupyter
+matplotlib
+pandas
+pillow
+scipy
+tqdm
+h5py
+ipykernel
+torch-summary
+fiftyone
+nuscenes-devkit
+open3d
