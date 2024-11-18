@@ -32,9 +32,9 @@ def visualize_pointcloud_on_image(image, points, coloring):
     
 
 # Extract 2D image points and mask for each detection in camera_sample.pseudo_masks
-def assign_labels_from_masks(points_projected, camera_sample, image_width, image_height):
+def assign_labels_from_masks(points_projected, camera_sample):
     label_to_int = {'human': 0, 'vehicle': 1}  
-
+    image_width, image_height = camera_sample.metadata.width, camera_sample.metadata.height
     # Initialize labels array with a default value, e.g., -1 for "no label"
     point_classes = -1 * np.ones(points_projected.shape[1], dtype=int)
 
