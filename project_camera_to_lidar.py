@@ -5,17 +5,15 @@ import helpers
 import numpy as np
 import open3d as o3d
 import os
-
+from tqdm import tqdm
 
 DATASET_ROOT = "/datastore/nuScenes/"
 
 dataset = fo.load_dataset("nuscenes")
 nusc = NuScenes(version='v1.0-trainval', dataroot=DATASET_ROOT, verbose=False)
-explorer = NuScenesExplorer(nusc)
-
+dataset = dataset.match({"split": "train"})
 #['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT', 'CAM_BACK', 'CAM_BACK_RIGHT', 'LIDAR_TOP', 
-
-for group in dataset.iter_groups():
+for group in tqdm(dataset.iter_groups(), desc="Processing Samples", unit="samples"):
     lidar_sample = group["LIDAR_TOP"]
     front_camera_sample = group["CAM_FRONT"]
     front_left_camera_sample = group["CAM_FRONT_LEFT"]
@@ -48,13 +46,16 @@ for group in dataset.iter_groups():
 
     pcd = o3d.io.read_point_cloud(lidar_sample.filepath)
     lidar_data = np.asarray(pcd.points).T
-    point_classes = -1 * np.ones(lidar_data.shape[1], dtype=int)
+    point_classes = np.zeros(lidar_data.shape[1], dtype=int)
     for i, camera_token in enumerate(camera_token_list):
         points_projected, _, _, visible_indices = helpers.map_pointcloud_to_image_with_indices(nusc, 
-                                                                                                    lidar_token, 
-                                                                                                    camera_token)
+                                                                                                lidar_token, 
+                                                                                                camera_token)
         visible_labels = helpers.assign_labels_from_masks(points_projected, camera_sample_list[i])
 
         point_classes[visible_indices] = visible_labels
-    break
-helpers.visualize_pointcloud_with_labels(pcd, point_classes)
+    lidar_sample['pseudo_label'] = point_classes
+    lidar_sample.save()
+    # break
+
+# helpers.visualize_pointcloud_with_labels(pcd, lidar_sample['pseudo_label'])

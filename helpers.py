@@ -8,6 +8,7 @@ from typing import Tuple, List, Iterable
 from pyquaternion import Quaternion
 from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.geometry_utils import view_points
+from skimage.transform import resize
 
 # Display the image with the points overlaid
 def visualize_pointcloud_on_image(image, points, coloring):
@@ -33,28 +34,44 @@ def visualize_pointcloud_on_image(image, points, coloring):
 
 # Extract 2D image points and mask for each detection in camera_sample.pseudo_masks
 def assign_labels_from_masks(points_projected, camera_sample):
-    label_to_int = {'human': 0, 'vehicle': 1}  
+    label_to_int = {'human': 1, 'vehicle': 2}  
     image_width, image_height = camera_sample.metadata.width, camera_sample.metadata.height
     # Initialize labels array with a default value, e.g., -1 for "no label"
-    point_classes = -1 * np.ones(points_projected.shape[1], dtype=int)
+    point_classes = np.zeros(points_projected.shape[1], dtype=int)
+
+    if not hasattr(camera_sample, 'pseudo_masks'):  # No pseudo masks available
+        return point_classes
 
     for detection in camera_sample.pseudo_masks.detections:
         mask = detection.mask
         bbox = detection.bounding_box  # [x_min, y_min, width, height]
         label = detection.label
-        label_int = label_to_int.get(label, -1)
+        label_int = label_to_int.get(label, 0)
         
         # Scale bounding box coordinates to match image dimensions
-        x_min, y_min, width, height = bbox
-        x_min *= image_width
-        y_min *= image_height
-        width *= image_width
-        height *= image_height
+        x_min = round(bbox[0] * image_width)
+        y_min = round(bbox[1] * image_height)
+        width = round(bbox[2] * image_width)
+        height = round(bbox[3] * image_height)
+
+        # Clip bounding box to image bounds
+        x_max = min(x_min + width, image_width)
+        y_max = min(y_min + height, image_height)
+        x_min = max(0, x_min)
+        y_min = max(0, y_min)
+
+        # Adjust mask dimensions to fit the bounding box region
+        target_height = y_max - y_min
+        target_width = x_max - x_min
+
+        if mask.shape != (target_height, target_width):
+            # Resize mask to match target dimensions
+            mask = resize(mask, (target_height, target_width), preserve_range=True, order=0).astype(bool)
 
         # Create a full-sized mask initialized to False
         full_mask = np.zeros((image_height, image_width), dtype=bool)
-        full_mask[int(y_min):int(y_min + height), int(x_min):int(x_min + width)] = mask
-        
+        full_mask[y_min:y_max, x_min:x_max] = mask
+
         # Find points within the mask
         x_coords = np.floor(points_projected[0, :]).astype(int)
         y_coords = np.floor(points_projected[1, :]).astype(int)
@@ -187,9 +204,9 @@ def visualize_pointcloud_with_labels(pcd, point_classes):
 
     # Step 1: Define color mappings for each class label
     color_map = {
-        -1: [0.5, 0.5, 0.5],  # Gray for unlabeled points
-        0: [1, 0, 0],        # Red for "human"
-        1: [0, 0, 1],        # Blue for "vehicle"
+        0: [0.5, 0.5, 0.5],  # Gray for unlabeled points
+        1: [0, 1, 1],        # Cyan for "human"
+        2: [1, 0, 0],        # Red for "vehicle"
     }
 
     # Step 2: Convert `point_classes` to a color array

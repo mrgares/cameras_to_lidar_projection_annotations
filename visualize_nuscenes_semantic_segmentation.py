@@ -59,4 +59,28 @@ pcd.points = o3d.utility.Vector3dVector(points)
 pcd.colors = o3d.utility.Vector3dVector(colors)
 
 # Visualize the point cloud with labels
-o3d.visualization.draw_geometries([pcd], window_name="Labeled Point Cloud")
+# o3d.visualization.draw_geometries([pcd], window_name="Labeled Point Cloud")
+
+# Define a callback to display selected points' coordinates
+def select_points_with_editing(pcd):
+    """
+    Use Open3D's VisualizerWithEditing to allow point selection.
+    """
+    print("Launching visualization window... (Press SHIFT + Left Click to select points)")
+    vis = o3d.visualization.VisualizerWithEditing()
+    vis.create_window(window_name="Select Points")
+    vis.add_geometry(pcd)
+    vis.run()  # User selects points here
+    vis.destroy_window()
+    return vis.get_picked_points()
+
+# Run visualization and get selected points
+picked_indices = select_points_with_editing(pcd)
+
+# Print selected points' coordinates
+if picked_indices:
+    print("\nSelected points' coordinates:")
+    for idx in picked_indices:
+        print(f"Point Index: {idx}, Coordinates: {np.asarray(pcd.points)[idx]}")
+else:
+    print("No points were selected.")
